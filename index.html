@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>С днём рождения, Наташа! 🎂</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #1a1228;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+  }
+  #wrap { position: fixed; inset: 0; background: #2a1a3a; }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: 100%;
+    height: 100%;
+  }
+  #hud {
+    position: absolute;
+    top: 12px; left: 12px; right: 12px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    font-size: 16px;
+    text-shadow: 2px 2px 0 #000;
+    flex-wrap: wrap;
+    gap: 8px;
+    z-index: 2;
+  }
+  #inv, #loc, #quest {
+    background: rgba(0,0,0,.75);
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 2px solid #ff66cc88;
+  }
+  #quest { color: #ffcc66; font-size: 14px; }
+  #help {
+    position: absolute;
+    bottom: 12px; left: 12px;
+    background: rgba(0,0,0,.6);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #aaa;
+    z-index: 2;
+    pointer-events: none;
+  }
+  #dialog {
+    position: absolute;
+    bottom: 50px; left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 900px;
+    background: rgba(20,10,40,.96);
+    border: 3px solid #ff66cc;
+    border-radius: 10px;
+    padding: 18px 24px;
+    font-size: 18px;
+    display: none;
+    text-shadow: 1px 1px 0 #000;
+    line-height: 1.5;
+    z-index: 3;
+  }
+  #dialog .who { color: #ffcc66; font-weight: bold; margin-bottom: 8px; font-size: 17px;}
+  #dialog .hint { color: #aaa; font-size: 14px; margin-top: 8px; font-style: italic;}
+  #dialog .close { color: #888; font-size: 12px; margin-top: 8px; text-align: right;}
+  #dialog input {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px;
+    background: #1a1228;
+    color: #fff;
+    border: 2px solid #ff66cc;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 17px;
+    outline: none;
+  }
+  #title-screen, #end-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(20,10,40,.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 10;
+    padding: 20px;
+  }
+  #title-screen h1 { color: #ff66cc; font-size: 44px; margin-bottom: 18px; text-shadow: 4px 4px 0 #000; }
+  #title-screen p { margin: 10px 0; font-size: 18px; max-width: 700px;}
+  #title-screen .controls { color: #ffcc66; margin-top: 24px; font-size: 16px; }
+  button {
+    margin-top: 28px;
+    padding: 14px 36px;
+    background: #ff66cc;
+    color: #1a1228;
+    border: none;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #aa3399;
+  }
+  button:hover { background: #ff99dd; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #aa3399;}
+  #end-screen { display: none; }
+  #end-screen h2 { color: #ffcc66; font-size: 32px; margin-bottom: 18px; }
+  #end-screen .secret { color: #fff; font-size: 17px; margin: 18px 0; max-width: 700px; line-height: 1.7;}
+  .heart { color: #ff66cc; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div id="loc">📍 Комната</div>
+    <div id="quest">🎯 Найди ручку и иди исследовать дом</div>
+    <div id="inv">🎒 пусто</div>
+  </div>
+  <div id="help">WASD/стрелки — идти • E/Пробел — действие • R — отлепиться если застрял</div>
+  <div id="dialog"></div>
+
+  <div id="title-screen">
+    <h1>🎂 С днём рождения, Наташа! 🎂</h1>
+    <p>Сегодня твой день, но вредный кот спрятал всё для праздника...</p>
+    <p>Найди три ингредиента, реши загадки гостей и верни торту волшебство!</p>
+    <p class="controls">WASD или стрелки — идти &nbsp;•&nbsp; E или Пробел — взаимодействовать &nbsp;•&nbsp; R — отлепиться</p>
+    <p style="color:#aaa;font-size:14px;margin-top:8px;">(работает на любой раскладке клавиатуры)</p>
+    <button id="startBtn">Начать приключение ✨</button>
+  </div>
+
+  <div id="end-screen">
+    <h2 id="endTitle">🎉 Торт спасён! 🎉</h2>
+    <div class="secret" id="endText"></div>
+    <button id="endBtn">Вернуться в гостиную...</button>
+  </div>
+</div>
+
+<script>
+// =======================================================
+const HEROINE_NAME = "Наташа";
+const EASTER_EGG_TEXT = `Поздравляю, ${HEROINE_NAME}! Ты нашла секрет ✨
+
+На самом деле торт уже в холодильнике,
+а настоящий подарок спрятан под клавиатурой.
+
+P.S. Ты — лучшая! 🦄 волшебная пони летит на радуге 🌈`;
+// =======================================================
+
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+
+const W = 1280, H = 800;
+cv.width = W;
+cv.height = H;
+ctx.imageSmoothingEnabled = false;
+
+function resize(){
+  const aspect = W/H;
+  const winAspect = window.innerWidth/window.innerHeight;
+  let w, h;
+  if(winAspect > aspect){
+    h = window.innerHeight;
+    w = h * aspect;
+  } else {
+    w = window.innerWidth;
+    h = w / aspect;
+  }
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+  cv.style.position = 'absolute';
+  cv.style.left = ((window.innerWidth - w)/2) + 'px';
+  cv.style.top = ((window.innerHeight - h)/2) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ----- АУДИО -----
+let audioCtx;
+function initAudio(){
+  if(!audioCtx) {
+    try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+  }
+}
+function beep(freq, dur=0.1, type='square', vol=0.08){
+  if(!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = vol;
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e){}
+}
+function playPickup(){ beep(660,.08); setTimeout(()=>beep(880,.1),80); setTimeout(()=>beep(1100,.12),160); }
+function playDeny(){ beep(180,.15,'sawtooth'); }
+function playTalk(){ beep(440,.04,'square',.04); }
+function playWin(){ [523,659,784,1047,1318].forEach((n,i)=>setTimeout(()=>beep(n,.18),i*120)); }
+function playSecret(){
+  [523,587,659,698,784,880,988,1047,1175,1318].forEach((n,i)=>setTimeout(()=>beep(n,.2,'triangle',.1),i*150));
+}
+
+// ----- СОСТОЯНИЕ -----
+const state = {
+  scene: 'title',
+  inv: new Set(),
+  flags: {
+    spillCleaned: false,
+    riddle1: false, riddle2: false, riddle3: false,
+    finalAsked: false,
+    finalDone: false,
+    mirrorClicks: 0,
+    secretFound: false
+  },
+  player: { x: 640, y: 500, dir: 'down', t: 0, moving: false },
+  dialog: null,
+  pendingAnswer: null,
+  interactCooldown: 0
+};
+
+// ----- ВВОД -----
+const codes = {};
+let interactPressed = false;
+
+window.addEventListener('keydown', e=>{
+  if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+  const c = e.code;
+  if((c === 'KeyE' || c === 'Space' || c === 'Enter') && !codes[c]){
+    interactPressed = true;
+    e.preventDefault();
+  }
+  // аварийный телепорт
+  if(c === 'KeyR' && !codes[c] && state.scene !== 'title' && state.scene !== 'end'){
+    rescuePlayer();
+  }
+  codes[c] = true;
+
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyS','KeyD'].includes(c)){
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('keyup', e=>{
+  delete codes[e.code];
+});
+
+window.addEventListener('blur', ()=>{
+  for(const k in codes) delete codes[k];
+});
+
+// ----- УТИЛИТЫ -----
+function showDialog(who, text, hint=''){
+  const d = document.getElementById('dialog');
+  d.style.display = 'block';
+  d.innerHTML = `<div class="who">${who}</div><div>${text.replace(/\n/g,'<br>')}</div>${hint?`<div class="hint">${hint}</div>`:''}<div class="close">[E / Пробел — закрыть]</div>`;
+  state.dialog = { who, text };
+  for(const k in codes) delete codes[k];
+  playTalk();
+}
+function hideDialog(){
+  document.getElementById('dialog').style.display = 'none';
+  state.dialog = null;
+  state.interactCooldown = 8;
+  for(const k in codes) delete codes[k];
+}
+function updateHUD(){
+  const names = { pen:'🖊️Ручка', cherry:'🍒Вишня', chocolate:'🍫Шоколад', candles:'🕯️Свечи' };
+  const items = [...state.inv].map(k=>names[k]).join(' ');
+  document.getElementById('inv').textContent = '🎒 ' + (items || 'пусто');
+  const locs = { room:'Комната', kitchen:'Кухня', livingroom:'Гостиная', garden:'🌸 Сад', end:'Финал' };
+  document.getElementById('loc').textContent = '📍 ' + (locs[state.scene] || '');
+  let q = '';
+  if(!state.inv.has('pen')) q = '🎯 Возьми ручку со стола';
+  else if(state.scene === 'room') q = '🎯 Иди направо в кухню →';
+  else if(!state.flags.spillCleaned) q = '🎯 Вытри лужу полотенцем';
+  else if(!state.inv.has('cherry') || !state.inv.has('chocolate')) q = '🎯 Возьми вишню и шоколад';
+  else if(!state.inv.has('candles')){
+    const r = (state.flags.riddle1?1:0)+(state.flags.riddle2?1:0)+(state.flags.riddle3?1:0);
+    q = `🎯 Реши загадки в гостиной (${r}/3)`;
+  }
+  else if(!state.flags.finalDone) q = '🎯 Иди в сад к торту →';
+  else if(!state.flags.secretFound) q = '🎯 Зеркало в гостиной мерцает...';
+  else q = '✨ Всё найдено! Молодец!';
+  document.getElementById('quest').textContent = q;
+}
+
+function px(x,y,w,h,c){ ctx.fillStyle = c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+
+function drawPlayer(p){
+  const x = p.x|0, y = p.y|0;
+  const bob = Math.sin(p.t*0.25) * (p.moving?2:0);
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
+  ctx.beginPath(); ctx.ellipse(x, y+28, 18, 6, 0, 0, Math.PI*2); ctx.fill();
+  px(x-9, y+15-bob, 7, 12, '#5533aa');
+  px(x+2, y+15+bob, 7, 12, '#5533aa');
+  px(x-9, y+24-bob, 7, 4, '#331166');
+  px(x+2, y+24+bob, 7, 4, '#331166');
+  px(x-13, y-3, 26, 22, '#ff66cc');
+  px(x-13, y+5, 26, 4, '#ff99dd');
+  px(x-13, y+15, 26, 4, '#ffaae0');
+  px(x-16, y+1, 5, 13, '#ffd4a8');
+  px(x+11, y+1, 5, 13, '#ffd4a8');
+  px(x-9, y-22, 18, 19, '#ffd4a8');
+  px(x-10, y-25, 20, 8, '#663322');
+  px(x-11, y-17, 2, 10, '#663322');
+  px(x+9, y-17, 2, 10, '#663322');
+  px(x-11, y-8, 2, 6, '#663322');
+  px(x+9, y-8, 2, 6, '#663322');
+  if(p.dir==='left'){
+    px(x-7, y-13, 3, 4, '#000'); px(x+1, y-13, 3, 4, '#000');
+  } else if(p.dir==='right'){
+    px(x-3, y-13, 3, 4, '#000'); px(x+5, y-13, 3, 4, '#000');
+  } else if(p.dir==='up'){
+    px(x-6, y-15, 3, 3, '#000'); px(x+3, y-15, 3, 3, '#000');
+  } else {
+    px(x-6, y-13, 3, 4, '#000'); px(x+3, y-13, 3, 4, '#000');
+    px(x-2, y-7, 5, 1, '#cc6688');
+  }
+  ctx.fillStyle = '#ffcc33';
+  ctx.beginPath();
+  ctx.moveTo(x-8, y-22); ctx.lineTo(x+8, y-22); ctx.lineTo(x, y-38); ctx.fill();
+  px(x-3, y-40, 6, 6, '#ff3366');
+  px(x-7, y-29, 14, 3, '#ff3366');
+}
+
+function drawWalls(c1='#3a2a4a', c2='#5a3a6a'){
+  px(0,0,W,80,c1);
+  px(0,H-60,W,60,c1);
+  px(0,0,60,H,c1);
+  px(W-60,0,60,H,c1);
+  px(0,80,W,5,c2);
+  px(0,H-65,W,5,c2);
+  px(60,0,5,H,c2);
+  px(W-65,0,5,H,c2);
+}
+
+function distToObj(p, o){
+  const dx = Math.max(o.x - p.x, 0, p.x - (o.x+o.w));
+  const dy = Math.max(o.y - p.y, 0, p.y - (o.y+o.h));
+  return Math.hypot(dx, dy);
+}
+
+// ============= КОМНАТА =============
+function makeRoom(){
+  return {
+    bg(){
+      for(let y=85;y<H-65;y+=44) for(let x=65;x<W-65;x+=22){
+        px(x,y,22,44, ((x/22+y/44)%2)?'#7a5a8a':'#6a4a7a');
+      }
+      drawWalls();
+      px(W/2-220, H/2-30, 440, 260, '#cc4477');
+      px(W/2-210, H/2-20, 420, 240, '#dd6688');
+      px(W/2-55, 18, 110, 56, '#aa8833');
+      px(W/2-50, 23, 100, 46, '#88ccff');
+      px(W/2-42, 42, 18, 18, '#ffcc33');
+      px(W/2-15, 50, 42, 12, '#33aa55');
+    },
+    objects: [
+      { id:'bed', x:130, y:130, w:280, h:180, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#cc88ee');
+          px(this.x, this.y, this.w, 36, '#aaccff');
+          px(this.x+18, this.y+12, 80, 22, '#fff');
+          px(this.x+22, this.y+15, 72, 14, '#ffeecc');
+          px(this.x+15, this.y+44, this.w-30, this.h-58, '#dd99ff');
+          for(let i=0;i<6;i++) px(this.x+30+i*40, this.y+95, 12, 12, '#ff66cc');
+          px(this.x, this.y+this.h, 16, 10, '#552266');
+          px(this.x+this.w-16, this.y+this.h, 16, 10, '#552266');
+        },
+        interact(){ showDialog(HEROINE_NAME, 'Кровать заправлена. Сегодня же праздник, не до сна!'); }
+      },
+      { id:'desk', x:W-410, y:130, w:280, h:140, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#8b5a3c');
+          px(this.x, this.y, this.w, 18, '#a06a44');
+          px(this.x+45, this.y+38, 100, 70, '#222');
+          px(this.x+50, this.y+43, 90, 54, '#5588ff');
+          px(this.x+58, this.y+50, 12, 12, '#fff');
+          px(this.x+74, this.y+50, 46, 7, '#fff');
+          px(this.x+74, this.y+64, 32, 7, '#fff');
+          px(this.x+15, this.y+this.h, 20, 14, '#552266');
+          px(this.x+this.w-35, this.y+this.h, 20, 14, '#552266');
+          if(!state.inv.has('pen')){
+            const t = Date.now()*0.005;
+            const glow = (Math.sin(t)*0.5+0.5);
+            ctx.fillStyle = `rgba(255,255,150,${0.3+glow*0.5})`;
+            ctx.beginPath(); ctx.arc(this.x+215, this.y+70, 28, 0, Math.PI*2); ctx.fill();
+            px(this.x+207, this.y+45, 8, 44, '#ff3366');
+            px(this.x+207, this.y+38, 8, 9, '#ffcc33');
+            px(this.x+208, this.y+89, 6, 6, '#888');
+            ctx.fillStyle = '#ffcc66';
+            ctx.font = 'bold 18px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', this.x+211, this.y+30);
+            ctx.textAlign = 'left';
+          }
+        },
+        interact(){
+          if(!state.inv.has('pen')){
+            state.inv.add('pen');
+            playPickup();
+            showDialog(HEROINE_NAME, '🖊️ Подобрала ручку!\nОй! А списка ингредиентов нет на столе. Придётся искать по всему дому.');
+            updateHUD();
+          } else {
+            showDialog(HEROINE_NAME, 'Списка ингредиентов нигде нет. Надо искать по дому.');
+          }
+        }
+      },
+      { id:'dresser', x:130, y:H-280, w:220, h:120, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#8b5a3c');
+          px(this.x+10, this.y+16, this.w-20, 38, '#6b3a1c');
+          px(this.x+10, this.y+68, this.w-20, 38, '#6b3a1c');
+          px(this.x+this.w/2-4, this.y+34, 8, 6, '#ffcc33');
+          px(this.x+this.w/2-4, this.y+86, 8, 6, '#ffcc33');
+          px(this.x+this.w-55, this.y-44, 22, 44, '#3399cc');
+          px(this.x+this.w-53, this.y-72, 18, 30, '#338833');
+          px(this.x+this.w-60, this.y-82, 32, 18, '#ff66cc');
+          px(this.x+this.w-50, this.y-78, 10, 8, '#ffcc33');
+        },
+        interact(){ showDialog(HEROINE_NAME, 'Тут только моя одежда. Праздничное платье уже надето!'); }
+      },
+      { id:'door-kitchen', x:W-65, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x-12, this.y, 12, this.h, '#552a2a');
+          px(this.x-9, this.y+4, 6, this.h-8, '#774444');
+          px(this.x-5, this.y+this.h/2, 4, 7, '#ffcc33');
+          ctx.fillStyle='#ffcc66';
+          ctx.font='bold 20px monospace';
+          ctx.textAlign='right';
+          ctx.fillText('→ Кухня', this.x-18, this.y-14);
+          ctx.textAlign='left';
+        },
+        interact(){ goTo('kitchen', 130, H/2); }
+      }
+    ]
+  };
+}
+
+// ============= КУХНЯ =============
+function makeKitchen(){
+  return {
+    bg(){
+      for(let y=85;y<H-65;y+=48) for(let x=65;x<W-65;x+=48){
+        px(x,y,48,48, ((x/48+y/48)%2)?'#ddccaa':'#ccbb99');
+      }
+      drawWalls('#5a4030', '#7a5a40');
+      px(W/2-90, 16, 180, 64, '#88ccff');
+      px(W/2-86, 20, 172, 56, '#aaddee');
+      px(W/2, 18, 4, 60, '#5a4030');
+      px(W/2-88, 46, 176, 4, '#5a4030');
+    },
+    objects: [
+      { id:'door-back', x:0, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x+53, this.y, 12, this.h, '#552a2a');
+          ctx.fillStyle='#ffcc66'; ctx.font='bold 20px monospace';
+          ctx.fillText('← Комната', this.x+72, this.y-14);
+        },
+        interact(){ goTo('room', W-130, H/2); }
+      },
+      { id:'fridge', x:130, y:120, w:130, h:220, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#eeeeee');
+          px(this.x+5, this.y+5, this.w-10, this.h-10, '#f8f8f8');
+          px(this.x, this.y+95, this.w, 6, '#999');
+          px(this.x+this.w-16, this.y+45, 8, 16, '#888');
+          px(this.x+this.w-16, this.y+130, 8, 16, '#888');
+          px(this.x+22, this.y+22, 20, 16, '#ff66cc');
+          px(this.x+50, this.y+28, 18, 12, '#66ccff');
+          px(this.x+78, this.y+20, 16, 18, '#ffcc33');
+        },
+        interact(){ showDialog(HEROINE_NAME, 'В холодильнике что-то аппетитное... но потом!', '👀 запомни это место для пасхалки'); }
+      },
+      { id:'stove', x:W/2-130, y:120, w:260, h:150, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#444');
+          px(this.x+5, this.y+5, this.w-10, 46, '#222');
+          for(let i=0;i<4;i++){
+            const cx = this.x+35+(i%2)*130;
+            const cy = this.y+70+Math.floor(i/2)*36;
+            px(cx, cy, 50, 28, '#222');
+            px(cx+6, cy+5, 38, 18, '#cc3333');
+            px(cx+12, cy+8, 26, 12, '#ff6633');
+          }
+          for(let i=0;i<4;i++) px(this.x+26+i*56, this.y+22, 16, 16, '#888');
+        },
+        interact(){ showDialog(HEROINE_NAME, 'Плита тёплая, тут что-то готовилось. Ароматно!'); }
+      },
+      { id:'table', x:W-400, y:130, w:280, h:160, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, 26, '#c08a64');
+          px(this.x, this.y+26, this.w, this.h-26, '#a06a44');
+          px(this.x+15, this.y+this.h, 18, 28, '#553322');
+          px(this.x+this.w-33, this.y+this.h, 18, 28, '#553322');
+          if(!state.inv.has('cherry')){
+            const t = Date.now()*0.004;
+            const glow = (Math.sin(t)*0.5+0.5);
+            ctx.fillStyle = `rgba(255,100,150,${0.3+glow*0.4})`;
+            ctx.beginPath(); ctx.arc(this.x+80, this.y+85, 32, 0, Math.PI*2); ctx.fill();
+            px(this.x+62, this.y+76, 22, 22, '#cc1133');
+            px(this.x+68, this.y+80, 10, 10, '#ff5577');
+            px(this.x+71, this.y+52, 5, 22, '#338833');
+            px(this.x+76, this.y+47, 10, 8, '#55aa55');
+          }
+          if(!state.inv.has('chocolate')){
+            const t = Date.now()*0.004 + 1;
+            const glow = (Math.sin(t)*0.5+0.5);
+            ctx.fillStyle = `rgba(150,80,50,${0.3+glow*0.4})`;
+            ctx.beginPath(); ctx.arc(this.x+200, this.y+85, 38, 0, Math.PI*2); ctx.fill();
+            px(this.x+165, this.y+65, 76, 42, '#5a2a1a');
+            for(let i=0;i<4;i++) for(let j=0;j<2;j++)
+              px(this.x+169+i*18, this.y+69+j*18, 14, 16, '#7a3a2a');
+          }
+        },
+        interact(){
+          if(!state.flags.spillCleaned){
+            showDialog(HEROINE_NAME, 'Не могу подойти к столу — там лужа сока, скользко!', 'Найди полотенце 🧻');
+            playDeny();
+            return;
+          }
+          if(!state.inv.has('cherry')){
+            state.inv.add('cherry'); playPickup();
+            showDialog(HEROINE_NAME, '🍒 Взяла вишенку! Один ингредиент есть.');
+          } else if(!state.inv.has('chocolate')){
+            state.inv.add('chocolate'); playPickup();
+            showDialog(HEROINE_NAME, '🍫 Шоколадка моя! Кухонные ингредиенты собраны ✨');
+          } else {
+            showDialog(HEROINE_NAME, 'На кухне больше ничего не нужно. В гостиную!');
+          }
+          updateHUD();
+        }
+      },
+      { id:'spill', x:W-380, y:380, w:240, h:120, solid:false,
+        draw(){
+          if(!state.flags.spillCleaned){
+            ctx.fillStyle = '#ff9933cc';
+            ctx.beginPath(); ctx.ellipse(this.x+120,this.y+60,115,52,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#ffaa44';
+            ctx.beginPath(); ctx.ellipse(this.x+108,this.y+52,80,34,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#ffcc66';
+            ctx.beginPath(); ctx.ellipse(this.x+125,this.y+64,38,16,0,0,Math.PI*2); ctx.fill();
+            px(this.x+150, this.y+15, 44, 22, '#ff8833');
+            px(this.x+154, this.y+19, 36, 14, '#ffaa55');
+            px(this.x+142, this.y+22, 12, 8, '#ff8833');
+          }
+        },
+        interact(){
+          if(state.flags.spillCleaned) showDialog(HEROINE_NAME, 'Чисто! Можно проходить к столу.');
+          else { showDialog(HEROINE_NAME, 'Тут разлит апельсиновый сок. Нужно полотенце с раковины!'); playDeny(); }
+        }
+      },
+      { id:'sink', x:220, y:H-310, w:240, h:150, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#bbbbcc');
+          px(this.x+16, this.y+24, this.w-32, this.h-40, '#888899');
+          px(this.x+22, this.y+30, this.w-44, this.h-52, '#aaaabb');
+          px(this.x+this.w/2-5, this.y-26, 10, 30, '#ccc');
+          px(this.x+this.w/2-14, this.y-26, 28, 7, '#ccc');
+          if(!state.flags.spillCleaned){
+            const t = Date.now()*0.003;
+            const sway = Math.sin(t)*3;
+            px(this.x+this.w-26+sway, this.y+44, 42, 78, '#66ccff');
+            px(this.x+this.w-22+sway, this.y+48, 34, 70, '#99ddff');
+            px(this.x+this.w-18+sway, this.y+58, 28, 6, '#fff');
+            px(this.x+this.w-18+sway, this.y+82, 28, 6, '#fff');
+            ctx.fillStyle = '#ffcc66';
+            ctx.font = 'bold 18px monospace';
+            ctx.fillText('🧻', this.x+this.w-2+sway, this.y+38);
+          }
+        },
+        interact(){
+          if(!state.flags.spillCleaned){
+            state.flags.spillCleaned = true;
+            playPickup();
+            showDialog(HEROINE_NAME, 'Взяла полотенце и вытерла лужу! Теперь можно к столу. 🧻✨');
+            updateHUD();
+          } else {
+            showDialog(HEROINE_NAME, 'Раковина чистая.');
+          }
+        }
+      },
+      { id:'door-living', x:W-65, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x-12, this.y, 12, this.h, '#552a2a');
+          px(this.x-9, this.y+4, 6, this.h-8, '#774444');
+          ctx.fillStyle='#ffcc66'; ctx.font='bold 20px monospace';
+          ctx.textAlign='right';
+          ctx.fillText('→ Гостиная', this.x-18, this.y-14);
+          ctx.textAlign='left';
+        },
+        interact(){
+          if(state.inv.has('cherry') && state.inv.has('chocolate')) goTo('livingroom', 130, H/2);
+          else { showDialog(HEROINE_NAME, 'Сначала возьму всё с кухни — вишню и шоколад!'); playDeny(); }
+        }
+      }
+    ]
+  };
+}
+
+// ============= ГОСТИНАЯ =============
+const RIDDLES = [
+  { q:'Что всегда увеличивается, но никогда не уменьшается?', a:['возраст','любовь','любовь к тебе','года','время'], hint:'(введи ответ и нажми Enter)' },
+  { q:'Чем больше из неё берёшь, тем больше она становится. Что это?', a:['яма','дыра','долг'], hint:'(одно слово)' },
+  { q:'Сколько свечек на торте у самой лучшей девушки в мире?', a:['*'], hint:'(любой ответ — ведь у тебя их может быть сколько угодно 💖)' }
+];
+
+function makeLivingRoom(){
+  return {
+    bg(){
+      for(let y=85;y<H-65;y+=48) for(let x=65;x<W-65;x+=28){
+        px(x,y,28,48, ((x/28+y/48)%2)?'#9a6a4a':'#aa7a5a');
+      }
+      drawWalls('#4a3a5a', '#6a4a7a');
+      px(W/2-300, H/2-110, 600, 280, '#aa3355');
+      px(W/2-290, H/2-100, 580, 260, '#cc5577');
+      px(W/2-280, H/2-90, 560, 240, '#aa3355');
+      px(W/2-3, 80, 6, 28, '#888');
+      px(W/2-36, 108, 72, 20, '#ffcc33');
+      px(W/2-44, 128, 88, 9, '#ffaa00');
+      for(let i=0;i<W;i+=54){
+        px(i, 90+Math.sin(i*0.05)*5, 9, 9, ['#ff66cc','#ffcc33','#66ccff','#33aa55'][i/54%4|0]);
+      }
+    },
+    objects: [
+      { id:'door-back', x:0, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x+53, this.y, 12, this.h, '#552a2a');
+          ctx.fillStyle='#ffcc66'; ctx.font='bold 20px monospace';
+          ctx.fillText('← Кухня', this.x+72, this.y-14);
+        },
+        interact(){ goTo('kitchen', W-130, H/2); }
+      },
+      { id:'sofa', x:170, y:H-320, w:340, h:180, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, 56, '#4466bb');
+          px(this.x, this.y+42, this.w, 102, '#5577cc');
+          px(this.x+18, this.y+56, 130, 78, '#6688dd');
+          px(this.x+200, this.y+56, 130, 78, '#6688dd');
+          px(this.x, this.y+30, 32, 130, '#3355aa');
+          px(this.x+this.w-32, this.y+30, 32, 130, '#3355aa');
+          px(this.x+12, this.y+this.h, 14, 12, '#222');
+          px(this.x+this.w-26, this.y+this.h, 14, 12, '#222');
+          const cx = this.x+this.w/2-26, cy = this.y+62;
+          px(cx, cy, 52, 44, '#ffaa66');
+          px(cx-5, cy-10, 14, 16, '#ffaa66');
+          px(cx+43, cy-10, 14, 16, '#ffaa66');
+          px(cx-1, cy-6, 7, 9, '#ff8844');
+          px(cx+47, cy-6, 7, 9, '#ff8844');
+          px(cx+10, cy+5, 32, 4, '#cc7733');
+          px(cx+10, cy+16, 32, 4, '#cc7733');
+          px(cx+12, cy+14, 7, 8, '#000');
+          px(cx+33, cy+14, 7, 8, '#000');
+          px(cx+13, cy+15, 2, 3, '#fff');
+          px(cx+34, cy+15, 2, 3, '#fff');
+          px(cx+22, cy+26, 8, 5, '#ff6699');
+          if(state.flags.riddle1){
+            px(cx+15, cy+33, 8, 2, '#cc3366');
+            px(cx+29, cy+33, 8, 2, '#cc3366');
+            ctx.fillStyle = '#33ff66';
+            ctx.font = 'bold 30px monospace';
+            ctx.fillText('✓', cx+52, cy+18);
+          } else {
+            px(cx+20, cy+34, 12, 2, '#553366');
+          }
+        },
+        interact(){ askRiddle(0, '🐱 Котик'); }
+      },
+      { id:'tv', x:W/2-140, y:H-300, w:280, h:170, solid:true,
+        draw(){
+          px(this.x, this.y+88, this.w, 82, '#5a3a2a');
+          px(this.x+10, this.y+98, this.w-20, 62, '#7a5a3a');
+          px(this.x+34, this.y, this.w-68, 100, '#222');
+          px(this.x+38, this.y+4, this.w-76, 88, '#3366aa');
+          for(let i=0;i<30;i++) px(this.x+40+Math.random()*(this.w-80)|0, this.y+8+Math.random()*82|0, 6,3,'#fff');
+          px(this.x+78, this.y+100, 14, 14, '#444');
+          px(this.x+this.w-92, this.y+100, 14, 14, '#444');
+          const fx = this.x+this.w/2-26, fy = this.y+126;
+          px(fx, fy, 52, 36, '#ee6633');
+          px(fx-7, fy-12, 16, 16, '#ee6633');
+          px(fx+43, fy-12, 16, 16, '#ee6633');
+          px(fx-3, fy-7, 8, 9, '#ffaa88');
+          px(fx+47, fy-7, 8, 9, '#ffaa88');
+          px(fx+16, fy+14, 20, 16, '#fff');
+          px(fx+10, fy+10, 6, 7, '#000');
+          px(fx+36, fy+10, 6, 7, '#000');
+          px(fx+22, fy+18, 8, 5, '#000');
+          if(state.flags.riddle2){
+            ctx.fillStyle = '#33ff66'; ctx.font = 'bold 30px monospace';
+            ctx.fillText('✓', fx+52, fy+22);
+          }
+        },
+        interact(){ askRiddle(1, '🦊 Лисичка'); }
+      },
+      { id:'shelf', x:W-410, y:H-340, w:240, h:220, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#6a3a1a');
+          for(let row=0;row<3;row++){
+            const ry = this.y+18+row*60;
+            px(this.x+10, ry+46, this.w-20, 7, '#5a2a0a');
+            for(let i=0;i<8;i++){
+              const bh = 36+(i%3)*5;
+              px(this.x+18+i*26, ry+46-bh, 22, bh,
+                ['#cc3333','#3366cc','#33aa55','#cc8833','#9933cc','#33aaaa','#cc6699','#cc4444'][i]);
+              px(this.x+18+i*26, ry+46-bh+5, 22, 4, '#000');
+            }
+          }
+          const ox = this.x+this.w/2-26, oy = this.y-50;
+          px(ox, oy, 52, 46, '#8855aa');
+          px(ox-4, oy-7, 14, 14, '#8855aa');
+          px(ox+42, oy-7, 14, 14, '#8855aa');
+          px(ox+7, oy+10, 15, 17, '#fff');
+          px(ox+30, oy+10, 15, 17, '#fff');
+          px(ox+12, oy+14, 7, 10, '#000');
+          px(ox+35, oy+14, 7, 10, '#000');
+          px(ox+22, oy+30, 8, 7, '#ffaa00');
+          px(ox-3, oy+22, 7, 18, '#6a3a8a');
+          px(ox+48, oy+22, 7, 18, '#6a3a8a');
+          if(state.flags.riddle3){
+            ctx.fillStyle = '#33ff66'; ctx.font = 'bold 30px monospace';
+            ctx.fillText('✓', ox+54, oy+18);
+          }
+        },
+        interact(){ askRiddle(2, '🦉 Сова'); }
+      },
+      { id:'candle-pickup', x:W/2-50, y:H/2-50, w:100, h:100, solid:false,
+        draw(){
+          if(state.flags.riddle1 && state.flags.riddle2 && state.flags.riddle3 && !state.inv.has('candles')){
+            const t = Date.now()*0.005;
+            const glow = (Math.sin(t)*0.5+0.5);
+            ctx.fillStyle = `rgba(255,200,100,${0.3+glow*0.5})`;
+            ctx.beginPath(); ctx.arc(this.x+50, this.y+50, 65, 0, Math.PI*2); ctx.fill();
+            for(let i=0;i<3;i++){
+              const cx = this.x+22+i*26;
+              px(cx, this.y+30, 9, 50, '#ffeecc');
+              px(cx, this.y+30, 9, 6, '#ffd699');
+              const flicker = Math.sin(t*4+i)*0.5+0.5;
+              px(cx+1, this.y+18, 7, 12, flicker>0.5 ? '#ffaa00':'#ff6633');
+              px(cx+3, this.y+12, 3, 6, '#ffffaa');
+              px(cx+3, this.y+25, 3, 3, '#222');
+            }
+            ctx.fillStyle = '#ffcc66'; ctx.font='bold 16px monospace';
+            ctx.textAlign='center';
+            ctx.fillText('Возьми меня!', this.x+50, this.y-10);
+            ctx.textAlign='left';
+          }
+        },
+        interact(){
+          if(state.flags.riddle1 && state.flags.riddle2 && state.flags.riddle3 && !state.inv.has('candles')){
+            state.inv.add('candles');
+            playPickup();
+            showDialog(HEROINE_NAME, '🕯️🕯️🕯️ Три свечи мои! Все ингредиенты собраны! Теперь в сад, к торту!');
+            updateHUD();
+          }
+        }
+      },
+      { id:'mirror', x:W/2-50, y:90, w:100, h:130, solid:true,
+        draw(){
+          px(this.x, this.y, this.w, this.h, '#aa8833');
+          px(this.x+5, this.y+5, this.w-10, this.h-10, '#ddaa44');
+          px(this.x+10, this.y+10, this.w-20, this.h-20, '#aaccee');
+          px(this.x+18, this.y+20, 10, 38, '#ffffff44');
+          px(this.x+50, this.y+50, 16, 32, '#ffffff44');
+          if(state.flags.finalDone && !state.flags.secretFound){
+            const t = Date.now()*0.008;
+            const glow = (Math.sin(t)*0.5+0.5);
+            ctx.fillStyle = `rgba(255,200,255,${glow*0.5})`;
+            ctx.fillRect(this.x+10, this.y+10, this.w-20, this.h-20);
+          }
+        },
+        interact(){
+          if(!state.flags.finalDone){
+            showDialog(HEROINE_NAME, 'Какое красивое зеркало! Но сейчас не до него — сначала торт!');
+            return;
+          }
+          state.flags.mirrorClicks++;
+          const left = 5 - state.flags.mirrorClicks;
+          if(state.flags.mirrorClicks >= 5){
+            triggerSecret();
+          } else {
+            showDialog('🪞 Зеркало', 'Тебе кажется, что в нём что-то мерцает...', `(нажми E ещё ${left} раз)`);
+            beep(440 + state.flags.mirrorClicks*120, .1, 'triangle');
+          }
+        }
+      },
+      { id:'door-garden', x:W-65, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x-12, this.y, 12, this.h, '#225522');
+          px(this.x-9, this.y+4, 6, this.h-8, '#447744');
+          ctx.fillStyle='#aaffaa'; ctx.font='bold 20px monospace';
+          ctx.textAlign='right';
+          ctx.fillText('→ В сад', this.x-18, this.y-14);
+          ctx.textAlign='left';
+        },
+        interact(){
+          if(state.inv.has('candles') && state.inv.has('cherry') && state.inv.has('chocolate')){
+            goTo('garden', 130, H/2);
+          } else {
+            showDialog(HEROINE_NAME, 'Сначала соберу всё! Не хватает чего-то...');
+            playDeny();
+          }
+        }
+      }
+    ]
+  };
+}
+
+function askRiddle(idx, npc){
+  if(state.flags['riddle'+(idx+1)]){
+    showDialog(npc, 'Спасибо за компанию! 💖 Праздник продолжается!');
+    return;
+  }
+  const r = RIDDLES[idx];
+  state.pendingAnswer = { idx, npc };
+  showDialog(npc, r.q, r.hint);
+  setTimeout(()=> openAnswerInput(r), 50);
+}
+
+function openAnswerInput(r){
+  const d = document.getElementById('dialog');
+  if(d.querySelector('input')) return;
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'твой ответ...';
+  d.appendChild(inp);
+  inp.focus();
+  inp.addEventListener('keydown', e=>{
+    e.stopPropagation();
+    if(e.key === 'Enter'){
+      const ans = inp.value.trim().toLowerCase();
+      if(!ans) return;
+      // если в массиве ответов есть '*' — принимаем любой ответ
+      const ok = r.a.includes('*') || r.a.some(a => ans.includes(a.toLowerCase()));
+      const i = state.pendingAnswer.idx;
+      const npc = state.pendingAnswer.npc;
+      if(ok){
+        state.flags['riddle'+(i+1)] = true;
+        playWin();
+        const allDone = state.flags.riddle1 && state.flags.riddle2 && state.flags.riddle3;
+        state.pendingAnswer = null;
+        if(allDone){
+          showDialog(npc, 'Верно! 💖 Все загадки разгаданы!\n✨ В центре комнаты появились три свечи — забери их!');
+        } else {
+          showDialog(npc, 'Верно! 💖 Спасибо за компанию!');
+        }
+        updateHUD();
+      } else {
+        playDeny();
+        showDialog(npc, 'Хм, не совсем... попробуй ещё раз!', r.hint);
+        setTimeout(()=>openAnswerInput(r), 50);
+      }
+    } else if(e.key === 'Escape'){
+      state.pendingAnswer = null;
+      hideDialog();
+    }
+  });
+}
+
+// ============= САД =============
+function makeGarden(){
+  return {
+    bg(){
+      for(let y=85;y<H-65;y+=48) for(let x=65;x<W-65;x+=48){
+        px(x,y,48,48, ((x/48+y/48)%2)?'#5aaa5a':'#4a9a4a');
+      }
+      for(let i=0;i<80;i++){
+        const tx = 80 + (i*97) % (W-160);
+        const ty = 100 + (i*61) % (H-200);
+        px(tx, ty, 2, 5, '#3a7a3a');
+        px(tx+3, ty+1, 2, 4, '#2a6a2a');
+      }
+      px(0, 60, W, 22, '#8b5a3c');
+      for(let x=20;x<W;x+=30){
+        px(x, 36, 18, 50, '#a06a44');
+        px(x, 34, 18, 5, '#c08a64');
+      }
+      px(0, H-60, W, 60, '#3a6a3a');
+      const flowers = [[140,180],[220,500],[920,200],[1000,520],[120,600],[860,640],[360,170],[1020,140]];
+      flowers.forEach(([fx,fy])=>{
+        px(fx, fy, 5, 18, '#338833');
+        px(fx-5, fy-5, 16, 10, ['#ff6699','#ffcc33','#cc66ff','#ff9933'][(fx+fy)%4]);
+        px(fx, fy-3, 5, 5, '#fff');
+      });
+      px(W-160, 100, 60, 60, '#ffcc33');
+      px(W-156, 96, 52, 68, '#ffcc33');
+      px(W-156, 102, 56, 56, '#ffee66');
+      for(let i=0;i<8;i++){
+        const a = i*Math.PI/4;
+        const cx = W-130, cy = 130;
+        px(cx+Math.cos(a)*48-3, cy+Math.sin(a)*48-3, 7, 7, '#ffcc33');
+      }
+    },
+    objects: [
+      { id:'door-back', x:0, y:H/2-80, w:65, h:160, solid:false,
+        draw(){
+          px(this.x+53, this.y, 12, this.h, '#552a2a');
+          ctx.fillStyle='#ffcc66'; ctx.font='bold 20px monospace';
+          ctx.fillText('← Назад', this.x+72, this.y-14);
+        },
+        interact(){ goTo('livingroom', W-130, H/2); }
+      },
+      { id:'cake-table', x:W/2-130, y:H/2-90, w:260, h:180, solid:true,
+        draw(){
+          px(this.x-15, this.y+80, this.w+30, 100, '#fff');
+          px(this.x-13, this.y+82, this.w+26, 96, '#ffeeee');
+          for(let i=0;i<this.w/20+2;i++) {
+            const zx = this.x-15+i*20;
+            px(zx, this.y+178, 10, 8, '#ff66cc');
+          }
+          px(this.x+this.w/2-15, this.y+178, 30, 24, '#553322');
+          const cx = this.x+this.w/2-50, cy = this.y;
+          px(cx-12, cy+50, 124, 38, '#ffeecc');
+          px(cx-12, cy+47, 124, 7, '#ff99bb');
+          px(cx+8, cy+18, 86, 36, '#ffd9aa');
+          px(cx+8, cy+15, 86, 6, '#ff99bb');
+          for(let i=0;i<6;i++) px(cx+13+i*15, cy+22, 5, 8, '#ff99bb');
+          for(let i=0;i<8;i++) px(cx-7+i*16, cy+55, 5, 10, '#ff66aa');
+          if(state.inv.has('cherry')){
+            px(cx+38, cy+10, 10, 10, '#cc1133');
+            px(cx+40, cy+12, 4, 4, '#ff5577');
+            px(cx+42, cy+5, 3, 6, '#338833');
+          }
+          if(state.inv.has('chocolate')){
+            px(cx+15, cy+20, 5, 10, '#5a2a1a');
+            px(cx+62, cy+20, 5, 10, '#5a2a1a');
+            px(cx+0, cy+52, 5, 12, '#5a2a1a');
+            px(cx+99, cy+52, 5, 12, '#5a2a1a');
+          }
+          if(state.inv.has('candles')){
+            for(let i=0;i<3;i++){
+              const ccx = cx+22+i*24;
+              px(ccx, cy-6, 5, 26, '#ffeecc');
+              px(ccx, cy-6, 5, 4, '#ffd699');
+              const flicker = Math.sin(Date.now()*0.012+i*1.5)*0.5+0.5;
+              px(ccx, cy-18, 5, 12, flicker>0.5 ? '#ffaa00':'#ff6633');
+              px(ccx+1, cy-23, 3, 6, '#ffffaa');
+            }
+          }
+          px(cx+12, cy+62, 5, 6, '#000');
+          px(cx+92, cy+62, 5, 6, '#000');
+          px(cx+13, cy+63, 2, 3, '#fff');
+          px(cx+93, cy+63, 2, 3, '#fff');
+          px(cx+5, cy+71, 8, 5, '#ff99bb88');
+          px(cx+95, cy+71, 8, 5, '#ff99bb88');
+          if(state.flags.finalDone){
+            px(cx+38, cy+74, 36, 4, '#cc3366');
+            px(cx+34, cy+72, 4, 4, '#cc3366');
+            px(cx+74, cy+72, 4, 4, '#cc3366');
+            ctx.fillStyle = '#cc3366';
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('С Днём Рождения!', cx+50, cy+105);
+            ctx.textAlign = 'left';
+            const colors = ['#ff66cc','#ffcc33','#66ccff','#33ff66','#cc66ff'];
+            for(let i=0;i<25;i++){
+              const ax = (Date.now()*0.1 + i*47) % 380 - 190;
+              const ay = ((Date.now()*0.15+i*31) % 240) - 60;
+              px(cx+50+ax, cy+ay, 5, 5, colors[i%5]);
+            }
+          } else {
+            px(cx+40, cy+78, 32, 3, '#553366');
+            px(cx+36, cy+76, 4, 4, '#553366');
+            px(cx+72, cy+76, 4, 4, '#553366');
+            const ty = (Date.now()*0.05)%32;
+            px(cx+10, cy+68+ty, 4, 6, '#66aaff');
+          }
+        },
+        interact(){
+          if(!state.flags.finalDone){
+            if(!state.flags.finalAsked){
+              state.flags.finalAsked = true;
+              if(state.inv.has('pen')){
+                showDialog('🎂 Торт', 'Я… так грущу 😢 Не хватает главного волшебства... подписи!', 'У тебя есть ручка — нажми E ещё раз чтобы написать');
+              } else {
+                showDialog('🎂 Торт', 'Мне грустно... мне нужно что-то, чем можно подписать коробку!');
+              }
+            } else if(state.inv.has('pen')){
+              state.flags.finalDone = true;
+              playWin();
+              showDialog(HEROINE_NAME, `✨ Я написала на коробке: "С днём рождения, ${HEROINE_NAME}!" 🎂\n\nТорт улыбнулся и засиял! Праздник спасён!`);
+              setTimeout(()=> { if(state.flags.finalDone) finishGame(); }, 4500);
+            }
+          } else {
+            showDialog('🎂 Торт', 'СПАСИБО! Теперь я самый счастливый торт в мире! 🎂✨💖');
+          }
+        }
+      }
+    ]
+  };
+}
+
+const SCENES = {};
+function initScenes(){
+  SCENES.room = makeRoom();
+  SCENES.kitchen = makeKitchen();
+  SCENES.livingroom = makeLivingRoom();
+  SCENES.garden = makeGarden();
+}
+
+// проверка, занята ли точка
+function isBlocked(scene, px, py, r=14){
+  if(px-r < 65 || px+r > W-65 || py-r < 90 || py+r > H-65) return true;
+  for(const o of scene.objects){
+    if(!o.solid) continue;
+    if(px+r > o.x && px-r < o.x+o.w && py+r > o.y && py-r < o.y+o.h) return true;
+  }
+  return false;
+}
+
+// найти ближайшую свободную точку рядом
+function findFreeNear(scene, x, y){
+  if(!isBlocked(scene, x, y)) return [x, y];
+  for(let d = 20; d < 600; d += 20){
+    for(let a = 0; a < 24; a++){
+      const ang = a * Math.PI / 12;
+      const nx = x + Math.cos(ang) * d;
+      const ny = y + Math.sin(ang) * d;
+      if(!isBlocked(scene, nx, ny)) return [nx, ny];
+    }
+  }
+  return [W/2, H/2]; // последний шанс — центр
+}
+
+function goTo(name, x, y){
+  state.scene = name;
+  const scene = SCENES[name];
+  const [fx, fy] = findFreeNear(scene, x, y);
+  state.player.x = fx;
+  state.player.y = fy;
+  hideDialog();
+  updateHUD();
+  beep(550, .08); setTimeout(()=>beep(700,.1),60);
+}
+
+// аварийное освобождение
+function rescuePlayer(){
+  const scene = SCENES[state.scene];
+  if(!scene) return;
+  const [fx, fy] = findFreeNear(scene, state.player.x, state.player.y);
+  state.player.x = fx;
+  state.player.y = fy;
+  beep(880, .1, 'triangle');
+  setTimeout(()=>beep(1100, .15, 'triangle'), 100);
+}
+
+// ----- ИГРОВОЙ ЦИКЛ -----
+function update(){
+  if(state.interactCooldown > 0) state.interactCooldown--;
+  if(state.scene === 'title' || state.scene === 'end') {
+    interactPressed = false;
+    return;
+  }
+  if(state.pendingAnswer) {
+    interactPressed = false;
+    return;
+  }
+
+  const p = state.player;
+  let dx=0, dy=0;
+  const sp = 4;
+  if(codes['ArrowLeft']||codes['KeyA']) { dx-=sp; p.dir='left'; }
+  if(codes['ArrowRight']||codes['KeyD']) { dx+=sp; p.dir='right'; }
+  if(codes['ArrowUp']||codes['KeyW']) { dy-=sp; p.dir='up'; }
+  if(codes['ArrowDown']||codes['KeyS']) { dy+=sp; p.dir='down'; }
+  p.moving = !!(dx||dy);
+  if(p.moving) p.t++;
+
+  const scene = SCENES[state.scene];
+  if(!scene) return;
+
+  if(dx && !isBlocked(scene, p.x+dx, p.y)) p.x += dx;
+  if(dy && !isBlocked(scene, p.x, p.y+dy)) p.y += dy;
+
+  if(interactPressed && state.interactCooldown <= 0){
+    interactPressed = false;
+    if(state.dialog){
+      hideDialog();
+      return;
+    }
+    let nearest=null, nd=120;
+    for(const o of scene.objects){
+      if(!o.interact) continue;
+      const d = distToObj(p, o);
+      if(d < nd){ nd = d; nearest = o; }
+    }
+    if(nearest) nearest.interact();
+  }
+  interactPressed = false;
+}
+
+function render(){
+  ctx.fillStyle = '#2a1a3a';
+  ctx.fillRect(0,0,W,H);
+  if(state.scene === 'title' || state.scene === 'end') return;
+
+  const scene = SCENES[state.scene];
+  if(!scene) return;
+  scene.bg();
+
+  let nearest = null, nd = 120;
+  if(!state.dialog){
+    for(const o of scene.objects){
+      if(!o.interact) continue;
+      const d = distToObj(state.player, o);
+      if(d < nd){ nd=d; nearest=o; }
+    }
+  }
+  if(nearest){
+    ctx.strokeStyle = '#ffcc66';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8,4]);
+    ctx.strokeRect(nearest.x-3, nearest.y-3, nearest.w+6, nearest.h+6);
+    ctx.setLineDash([]);
+  }
+
+  const drawables = [
+    ...scene.objects.filter(o=>o.draw).map(o=>({y:o.y+o.h, fn:()=>o.draw()})),
+    {y: state.player.y+15, fn:()=>drawPlayer(state.player)}
+  ];
+  drawables.sort((a,b)=>a.y-b.y);
+  drawables.forEach(d=>d.fn());
+
+  if(nearest){
+    const p = state.player;
+    ctx.fillStyle = 'rgba(0,0,0,.85)';
+    ctx.fillRect(p.x-26, p.y-58, 52, 22);
+    ctx.fillStyle = '#ffcc66';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('[E]', p.x, p.y-42);
+    ctx.textAlign = 'left';
+  }
+}
+
+function loop(){
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ----- НАЧАЛО / КОНЕЦ -----
+function startGame(){
+  initAudio();
+  initScenes();
+  document.getElementById('title-screen').style.display = 'none';
+  state.scene = 'room';
+  state.player.x = 640;
+  state.player.y = 500;
+  updateHUD();
+  showDialog(HEROINE_NAME, `Сегодня мой день рождения! 🎂 Но... где же все ингредиенты для торта?`, 'Подойди к столу с ноутбуком (он подсвечен жёлтым) и нажми E');
+}
+
+function finishGame(){
+  state.scene = 'end';
+  hideDialog();
+  document.getElementById('end-screen').style.display = 'flex';
+  document.getElementById('endTitle').textContent = `🎉 С днём рождения, ${HEROINE_NAME}! 🎉`;
+  document.getElementById('endText').innerHTML = `
+    Торт спасён, гости счастливы, праздник состоялся! 🎂✨<br><br>
+    Спасибо, что прошла это маленькое приключение.<br><br>
+    <em style="color:#ffcc66">...но кажется, в гостиной что-то поблёскивало в зеркале... 👀</em>
+  `;
+  document.getElementById('endBtn').style.display = 'inline-block';
+  document.getElementById('endBtn').textContent = 'Вернуться в гостиную...';
+  playWin();
+  updateHUD();
+}
+
+function returnToHouse(){
+  document.getElementById('end-screen').style.display = 'none';
+  state.scene = 'livingroom';
+  // ставим в безопасное место — нижний центр гостиной, перед диваном/тв
+  const scene = SCENES.livingroom;
+  const [fx, fy] = findFreeNear(scene, W/2, H/2 + 100);
+  state.player.x = fx;
+  state.player.y = fy;
+  updateHUD();
+  showDialog(HEROINE_NAME, 'Гости разошлись... тихо-тихо. Что-то мерцает в зеркале на стене?', 'Подойди к зеркалу (вверху) и нажми E пять раз');
+}
+
+function triggerSecret(){
+  state.flags.secretFound = true;
+  playSecret();
+  let flashes = 0;
+  const flashDiv = document.createElement('div');
+  flashDiv.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5;transition:opacity .15s;';
+  document.getElementById('wrap').appendChild(flashDiv);
+  const fi = setInterval(()=>{
+    flashes++;
+    flashDiv.style.opacity = flashes%2 ? '0.85' : '0';
+    if(flashes>=10){
+      clearInterval(fi);
+      flashDiv.remove();
+      showSecretScreen();
+    }
+  }, 150);
+}
+
+function showSecretScreen(){
+  state.scene = 'end';
+  document.getElementById('end-screen').style.display = 'flex';
+  document.getElementById('endTitle').innerHTML = '✨🦄 СЕКРЕТ НАЙДЕН 🦄✨';
+  document.getElementById('endText').innerHTML = `
+    <div style="background:#1a0a2a;border:2px dashed #ffcc66;padding:20px;border-radius:8px;white-space:pre-line;text-align:left;font-size:16px;line-height:1.7;">
+${EASTER_EGG_TEXT}
+    </div>
+    <div style="margin-top:20px;font-size:38px;">🌈🦄🎂🎁💖</div>
+    <div style="margin-top:14px;color:#ffcc66;font-size:14px;">[ребус: 🔑 ⌨️ = под клавиатурой]</div>
+  `;
+  document.getElementById('endBtn').style.display = 'none';
+  updateHUD();
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('endBtn').addEventListener('click', returnToHouse);
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
