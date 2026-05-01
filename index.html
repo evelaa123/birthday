@@ -22,7 +22,7 @@
   }
   #hud {
     position: absolute;
-    top: 12px; left: 12px; right: 130px;  /* было right: 12px — теперь оставляем место для кнопки */
+    top: 12px; left: 12px; right: 130px;
     display: flex;
     justify-content: space-between;
     pointer-events: none;
@@ -32,7 +32,6 @@
     gap: 8px;
     z-index: 2;
   }
-
   #inv, #loc, #quest {
     background: rgba(0,0,0,.75);
     padding: 10px 16px;
@@ -57,7 +56,6 @@
     margin: 0;
   }
   #muteBtn:hover { background: rgba(40,20,60,.9); }
-
   #help {
     position: absolute;
     bottom: 12px; left: 12px;
@@ -111,6 +109,7 @@
     text-align: center;
     z-index: 10;
     padding: 20px;
+    overflow-y: auto;
   }
   #title-screen h1 { color: #ff66cc; font-size: 44px; margin-bottom: 18px; text-shadow: 4px 4px 0 #000; }
   #title-screen p { margin: 10px 0; font-size: 18px; max-width: 700px;}
@@ -139,12 +138,11 @@
 <body>
 <div id="wrap">
   <canvas id="game"></canvas>
-<div id="hud">
-  <div id="loc">📍 Комната</div>
-  <div id="quest">🎯 Найди ручку и иди исследовать дом</div>
-  <div id="inv">🎒 пусто</div>
-</div>
-
+  <div id="hud">
+    <div id="loc">📍 Комната</div>
+    <div id="quest">🎯 Найди ручку и иди исследовать дом</div>
+    <div id="inv">🎒 пусто</div>
+  </div>
   <button id="muteBtn">🔊 Музыка</button>
   <div id="help">WASD/стрелки — идти • E/Пробел — действие • R — отлепиться если застрял</div>
   <div id="dialog"></div>
@@ -171,7 +169,7 @@ const HEROINE_NAME = "Наташа";
 const EASTER_EGG_TEXT = `Поздравляю, ${HEROINE_NAME}! Ты нашла секрет ✨
 
 На самом деле торт уже в холодильнике,
-а настоящий подарок спрятан под клавиатурой.
+а настоящий подарок ждёт тебя.
 
 P.S. Ты — лучшая! 🦄 волшебная пони летит на радуге 🌈`;
 // =======================================================
@@ -1330,7 +1328,7 @@ ${EASTER_EGG_TEXT}
       <div style="color:#fff;font-size:15px;margin-bottom:10px;">Позвони по номеру и назови код сертификата 👇</div>
       <div style="background:#1a0a2a;padding:14px;border-radius:8px;margin:12px 0;">
         <div style="color:#aaa;font-size:12px;margin-bottom:4px;">📞 Телефон:</div>
-        <div style="color:#66ffcc;font-size:24px;font-weight:bold;letter-spacing:2px;font-family:monospace;">+7 499 951-90-09</div>
+        <div style="color:#66ffcc;font-size:24px;font-weight:bold;letter-spacing:2px;font-family:monospace;user-select:text;">+7 499 951-90-09</div>
       </div>
       <div style="background:#1a0a2a;padding:14px;border-radius:8px;margin:12px 0;">
         <div style="color:#aaa;font-size:12px;margin-bottom:4px;">🔑 Код сертификата:</div>
@@ -1343,6 +1341,13 @@ ${EASTER_EGG_TEXT}
   updateHUD();
 }
 
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('endBtn').addEventListener('click', returnToHouse);
+document.getElementById('muteBtn').addEventListener('click', ()=>{
+  muted = !muted;
+  if(musicGain) musicGain.gain.value = muted ? 0 : 0.04;
+  document.getElementById('muteBtn').textContent = muted ? '🔇 Звук' : '🔊 Музыка';
+});
 
 requestAnimationFrame(loop);
 </script>
