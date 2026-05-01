@@ -1325,20 +1325,24 @@ function showSecretScreen(){
     <div style="background:#1a0a2a;border:2px dashed #ffcc66;padding:20px;border-radius:8px;white-space:pre-line;text-align:left;font-size:16px;line-height:1.7;">
 ${EASTER_EGG_TEXT}
     </div>
+    <div style="margin-top:24px;background:#2a1a4a;border:3px solid #ff66cc;padding:22px;border-radius:10px;max-width:560px;">
+      <div style="color:#ffcc66;font-size:18px;font-weight:bold;margin-bottom:14px;">🎁 Чтобы получить подарок:</div>
+      <div style="color:#fff;font-size:15px;margin-bottom:10px;">Позвони по номеру и назови код сертификата 👇</div>
+      <div style="background:#1a0a2a;padding:14px;border-radius:8px;margin:12px 0;">
+        <div style="color:#aaa;font-size:12px;margin-bottom:4px;">📞 Телефон:</div>
+        <div style="color:#66ffcc;font-size:24px;font-weight:bold;letter-spacing:2px;font-family:monospace;">+7 499 951-90-09</div>
+      </div>
+      <div style="background:#1a0a2a;padding:14px;border-radius:8px;margin:12px 0;">
+        <div style="color:#aaa;font-size:12px;margin-bottom:4px;">🔑 Код сертификата:</div>
+        <div style="color:#ffcc66;font-size:22px;font-weight:bold;letter-spacing:3px;font-family:monospace;user-select:text;cursor:text;">69F48DA99E0A2</div>
+      </div>
+    </div>
     <div style="margin-top:20px;font-size:38px;">🌈🦄🎂🎁💖</div>
-    <div style="margin-top:14px;color:#ffcc66;font-size:14px;">[ребус: 🔑 ⌨️ = под клавиатурой]</div>
   `;
   document.getElementById('endBtn').style.display = 'none';
   updateHUD();
 }
 
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('endBtn').addEventListener('click', returnToHouse);
-document.getElementById('muteBtn').addEventListener('click', ()=>{
-  muted = !muted;
-  if(musicGain) musicGain.gain.value = muted ? 0 : 0.04;
-  document.getElementById('muteBtn').textContent = muted ? '🔇 Звук' : '🔊 Музыка';
-});
 
 requestAnimationFrame(loop);
 </script>
